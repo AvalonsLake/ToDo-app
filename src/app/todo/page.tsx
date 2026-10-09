@@ -1,9 +1,9 @@
 "use client";
 import { useState, useEffect } from "react";
-import { loadTasks, saveTasks, generateTaskId } from "../functions";
+import { createTask, deleteTask, fetchTasks, updateTask } from "../functions";
 
 interface Task {
-  $id?: string;
+  $id: string;
   title: string;
   content: string;
   completed: boolean;
@@ -18,47 +18,46 @@ export default function Home() {
   const [editingContent, setEditingContent] = useState<string>("");
 
   // Load tasks when the component mounts
-  useEffect(() => {
-    setTasks(loadTasks());
-  }, []);
+const [loading, setLoading] = useState(true);
+const [error, setError] = useState<string | null>(null);
 
-  // Save tasks whenever they change
-  useEffect(() => {
-    saveTasks(tasks);
-  }, [tasks]);
+useEffect(() => {
+  fetchTasks()
+    .then(setTasks)
+    .catch((err) => setError(err.message))
+    .finally(() => setLoading(false));
+}, []);
 
-  const addTask = (): void => {
-    if (title.trim() === "" || content.trim() === "") return;
-    const newTask: Task = {
-      $id: generateTaskId(),
-      title,
-      content,
-      completed: false,
-    };
-    setTasks([...tasks, newTask]);
-    setTitle("");
-    setContent("");
-  };
+  // Add a task
+const addTask = async () => {
+  if (title.trim() === "" || content.trim() === "") return;
+  const newTask = await createTask(title.trim(), content.trim());
+  setTasks((prev) => [newTask, ...prev]);
+  setTitle("");
+  setContent("");
+};
 
-  const toggleTaskCompletion = (index: number): void => {
-    const updatedTasks = tasks.map((t, i) =>
-      i === index ? { ...t, completed: !t.completed } : t
-    );
-    setTasks(updatedTasks);
-  };
+// Toggle completion
+const toggleTaskCompletion = async (task: Task) => {
+  const updated = await updateTask(task.$id, { completed: !task.completed });
+  setTasks((prev) => prev.map((t) => (t.$id === updated.$id ? updated : t)));
+};
 
-  const deleteTask = (index: number): void => {
-    const updatedTasks = tasks.filter((_, i) => i !== index);
-    setTasks(updatedTasks);
-  };
+// Delete a task
+const removeTask = async (documentId: string) => {
+  await deleteTask(documentId);
+  setTasks((prev) => prev.filter((t) => t.$id !== documentId));
+};
 
-  const saveTask = (index: number): void => {
-    const updatedTasks = tasks.map((t, i) =>
-      i === index ? { ...t, title: editingTitle, content: editingContent } : t
-    );
-    setTasks(updatedTasks);
-    setEditingIndex(null);
-  };
+// Save edits
+const saveTask = async (documentId: string) => {
+  const updated = await updateTask(documentId, {
+    title: editingTitle.trim(),
+    content: editingContent.trim(),
+  });
+  setTasks((prev) => prev.map((t) => (t.$id === updated.$id ? updated : t)));
+  setEditingIndex(null);
+};
 
   const startEditing = (index: number): void => {
     setEditingIndex(index);
@@ -105,7 +104,7 @@ export default function Home() {
                   <input
                     type="checkbox"
                     checked={!!t.completed}
-                    onChange={() => toggleTaskCompletion(index)}
+                    onChange={() => toggleTaskCompletion(tasks[index])}
                     className="mr-2"
                   />
                 )}
@@ -152,7 +151,7 @@ export default function Home() {
                 {editingIndex === index ? (
                   <>
                     <button
-                      onClick={() => saveTask(index)}
+                      onClick={() => saveTask(t.$id)}
                       className="save-button"
                     >
                       Save
@@ -173,7 +172,7 @@ export default function Home() {
                       Edit
                     </button>
                     <button
-                      onClick={() => deleteTask(index)}
+                      onClick={() => removeTask(t.$id)}
                       className="delete-button ml-2"
                     >
                       Delete
