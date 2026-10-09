@@ -20,6 +20,8 @@ export default function Home() {
   // Load tasks when the component mounts
 const [loading, setLoading] = useState(true);
 const [error, setError] = useState<string | null>(null);
+{loading && <p>Loading tasks from Appwrite cloud...</p>}
+{error && <p className="text-red-600">{error}</p>}
 
 useEffect(() => {
   fetchTasks()
